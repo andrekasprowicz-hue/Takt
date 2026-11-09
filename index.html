@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Takt-Detektive – Rhythmus-Spiel</title>
+<style>
+*{box-sizing:border-box}
+:root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#1b2740;background:#f1f5fb}
+body{margin:0;min-height:100vh;padding:16px;display:flex;align-items:center;justify-content:center}
+main{width:min(900px,100%);background:#fff;border-radius:25px;padding:clamp(16px,4vw,32px);box-shadow:0 12px 38px #172b4d16}
+header,.topline,.controls{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:clamp(1.6rem,4vw,2.25rem)}
+.pill{background:#e9efff;color:#2d55a4;border-radius:99px;padding:8px 13px;font-size:.9rem;font-weight:800}
+.intro{color:#65718a;line-height:1.5;margin:10px 0 18px}
+.topline{justify-content:flex-start;margin:18px 0 9px}
+.stat{background:#f1f4fa;border-radius:12px;padding:9px 13px;font-weight:750}
+.progress{height:9px;background:#e9edf5;border-radius:20px;overflow:hidden;margin-bottom:20px}
+.progress>div{height:100%;width:10%;background:#3972cf;transition:width .2s}
+.listen{background:#f4f7fd;border:2px solid #e3eaf6;border-radius:20px;padding:clamp(18px,4vw,28px);text-align:center}
+.listen .ear{font-size:2.5rem}
+.listen h2{margin:5px 0 8px;font-size:1.35rem}
+.listen p{margin:0 0 15px;color:#66728a}
+button{font:inherit;cursor:pointer;touch-action:manipulation;border:0;border-radius:14px;padding:14px 18px;font-weight:800}
+.play{background:#2859bd;color:white;font-size:1.05rem;min-width:220px}
+.play:disabled{opacity:.6;cursor:wait}
+.answers{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:24px}
+.answer{background:#fff;border:2px solid #dfe6f1;border-radius:20px;padding:28px 20px;min-height:270px;text-align:center;transition:border-color .15s,background .15s}
+.answer:disabled{opacity:.55;cursor:not-allowed}
+.answer:not(:disabled):hover{border-color:#7e9cdb;background:#f8faff}
+.answer .label{font-size:.9rem;color:#68758e;font-weight:800;margin-bottom:8px}
+.rhythm{display:flex;align-items:center;justify-content:center;gap:clamp(3px,1vw,14px);flex-wrap:nowrap;white-space:nowrap;min-height:155px;padding:14px 2px;width:100%;overflow:visible}
+.symbol{display:inline-flex;align-items:center;justify-content:center;flex:0 1 76px;min-width:0;width:clamp(38px,7vw,76px);height:112px;color:#1d2b46;white-space:nowrap}.symbol svg{width:100%;max-width:66px;height:104px;display:block}.symbol img{width:100%;max-width:76px;height:104px;object-fit:contain;display:block}.symbol.rest svg{width:85%;max-width:58px;height:96px}
+.symbol.pair{font-size:clamp(1.65rem,4vw,2.2rem);letter-spacing:-7px;padding-right:7px}
+.symbol.rest{font-family:Georgia,serif;font-size:2.2rem}
+.answer small{display:block;color:#7b879b;margin-top:6px}
+.controls{margin-top:18px}
+.feedback{display:none;margin-top:16px;border-radius:15px;padding:15px 17px;line-height:1.5}
+.feedback.good{display:block;background:#effaf4;border:1px solid #bde8ce;color:#155d3b}
+.feedback.bad{display:block;background:#fff5ed;border:1px solid #f4d2b8;color:#81411d}
+.next{display:none;background:#2859bd;color:#fff;width:100%;margin-top:12px}
+.restart{background:#e9eef8;color:#2b477a}
+.help{margin-top:18px;color:#78849a;font-size:.9rem;line-height:1.5}
+.finish{display:none;text-align:center;padding:26px 8px}
+.finish .trophy{font-size:4rem}
+.finish h2{margin:5px 0}
+.score{font-size:3rem;font-weight:900;color:#168452}
+@media(max-width:560px){body{padding:8px}.answers{grid-template-columns:1fr;gap:12px}.answer{padding:18px 10px;min-height:205px}.rhythm{min-height:120px;gap:clamp(3px,1.5vw,9px);flex-wrap:nowrap}.symbol{flex:1 1 0;width:auto;min-width:0;height:92px}.symbol img{width:100%;height:88px}.symbol svg{width:100%;height:88px}.play{width:100%}.controls{align-items:stretch}.restart{width:100%}}
+</style>
+</head>
+<body>
+<main>
+<header><h1>🥁 Takt-Detektive</h1><span class="pill">10 Level</span></header>
+<p class="intro">Höre genau hin! Danach siehst du zwei Rhythmen. Welcher Rhythmus wurde gerade gespielt? Wähle A oder B.</p>
+<section id="game">
+ <div class="topline">
+  <div class="stat">Level <span id="level">1</span> / 10</div>
+  <div class="stat">Richtige Antworten: <span id="score">0</span></div>
+ </div>
+ <div class="progress"><div id="bar"></div></div>
+ <div class="listen">
+  <div class="ear">👂</div>
+  <h2>Höre dir den Takt an</h2>
+  <p>Du kannst den Rhythmus mehrmals anhören.</p>
+  <button class="play" id="play" type="button">▶ Rhythmus vorspielen</button>
+ </div>
+ <div class="answers">
+  <button class="answer" id="answerA" type="button" disabled>
+   <div class="label">ANTWORT A</div><div class="rhythm" id="rhythmA"></div><small>Tippe auf A</small>
+  </button>
+  <button class="answer" id="answerB" type="button" disabled>
+   <div class="label">ANTWORT B</div><div class="rhythm" id="rhythmB"></div><small>Tippe auf B</small>
+  </button>
+ </div>
+ <div class="feedback" id="feedback" aria-live="polite"></div>
+ <button class="next" id="next" type="button">Nächstes Level →</button>
+ <div class="controls"><div class="help">Ganze Note = 4 Schläge · halbe Note = 2 Schläge · Viertelnote = 1 Schlag. Pausen dauern genauso lange wie die entsprechenden Noten.</div><button class="restart" id="restart" type="button">↻ Neu starten</button></div>
+</section>
+<section class="finish" id="finish">
+ <div class="trophy">🏆</div><h2>Alle Level geschafft!</h2>
+ <div class="score" id="finalScore">0 / 10</div>
+ <p id="finalText">Du bist ein Takt-Profi!</p>
+ <button class="play" id="again" type="button">↻ Noch einmal spielen</button>
+</section>
+</main>
+<script>
+(function(){
+"use strict";
+// Jeder Rhythmus umfasst vier Viertelschläge. Zahlen geben die Länge in Achtel-Einheiten an:
+// 1 = Achtelnote, 2 = Viertelnote, 4 = halbe Note; null = Pause über eine Viertelnote.
+const levels=[
+ // Nur ganze, halbe und Viertelnoten sowie Pausen. Werte: 4=4 Schläge, 2=2, 1=1.
+ // Negative Werte sind Pausen gleicher Länge.
+ {correct:[1,1,1,1],wrong:[2,1,1]},
+ {correct:[4],wrong:[2,2]},
+ {correct:[2,1,1],wrong:[1,1,1,1]},
+ {correct:[1,-1,1,1],wrong:[1,1,-1,1]},
+ {correct:[2,-2],wrong:[2,1,1]},
+ {correct:[-2,1,1],wrong:[1,-2,1]},
+ {correct:[1,1,-1,1],wrong:[2,-1,1]},
+ {correct:[4],wrong:[1,1,1,1]},
+ {correct:[2,1,-1],wrong:[1,2,-1]},
+ {correct:[1,-1,2],wrong:[2,1,-1]}
+];
+let current=0,score=0,correctSide="A",playing=false,answered=false,audioContext=null;
+const $=id=>document.getElementById(id);
+function shufflePair(correct,wrong){
+ return Math.random()<.5?{A:correct,B:wrong,side:"A"}:{A:wrong,B:correct,side:"B"};
+}
+function noteSVG(kind){
+ // Die vier Notenbilder stammen direkt aus der vom Nutzer bereitgestellten Vorlage.
+ const noteImages={
+  whole:"assets/ganze-note.png",
+  half:"assets/halbe-note.png",
+  quarter:"assets/viertelnote.png",
+  eighth:"assets/achtelnote.png"
+ };
+ if(noteImages[kind]) return `<img src="${noteImages[kind]}" alt="" aria-hidden="true">`;
+ // Pausenzeichen werden ergänzend als grafische Symbole dargestellt.
+ const common='viewBox="0 0 48 68" aria-hidden="true" focusable="false"';
+ if(kind==="wholeRest") return `<svg ${common}><path d="M9 25 H37 V37 H9 Z" fill="#1d2b46"/></svg>`;
+ if(kind==="halfRest") return `<svg ${common}><path d="M9 31 H37 V43 H9 Z" fill="#1d2b46"/></svg>`;
+ if(kind==="quarterRest") return `<svg ${common}><path d="M22 5 L29 16 L18 28 L29 40 L19 52 L24 63" fill="none" stroke="#1d2b46" stroke-width="4.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+ return `<svg ${common}><path d="M17 8 C32 8 35 20 26 28 C37 31 37 44 23 48 L23 58" fill="none" stroke="#1d2b46" stroke-width="3.8" stroke-linecap="round"/><circle cx="23" cy="61" r="3.2" fill="#1d2b46"/></svg>`;
+}
+function symbols(pattern){
+ const wrap=document.createElement("div");wrap.className="rhythm";
+ pattern.forEach((duration)=>{
+  const span=document.createElement("span");span.className="symbol";
+  const value=Math.abs(duration);
+  let kind,label;
+  if(duration>0){
+   if(value===4){kind="whole";label="Ganze Note";}
+   else if(value===2){kind="half";label="Halbe Note";}
+   else {kind="quarter";label="Viertelnote";}
+  }else{
+   if(value===4){kind="wholeRest";label="Ganze Pause";}
+   else if(value===2){kind="halfRest";label="Halbe Pause";}
+   else {kind="quarterRest";label="Viertelpause";}
+  }
+  span.innerHTML=noteSVG(kind);span.setAttribute("aria-label",label);span.title=label;
+  wrap.appendChild(span);
+ });
+ return wrap;
+}
+function render(){
+ const item=levels[current],opts=shufflePair(item.correct,item.wrong);correctSide=opts.side;
+ $("level").textContent=current+1;$("score").textContent=score;
+ $("bar").style.width=((current+1)/10*100)+"%";
+ $("rhythmA").replaceChildren(symbols(opts.A));$("rhythmB").replaceChildren(symbols(opts.B));
+ $("answerA").disabled=true;$("answerB").disabled=true;
+ $("answerA").style.borderColor="";$("answerB").style.borderColor="";
+ $("feedback").className="feedback";$("feedback").textContent="";
+ $("next").style.display="none";$("play").disabled=false;$("play").textContent="▶ Rhythmus vorspielen";
+ answered=false;playing=false;
+}
+function getAudio(){
+ const AudioCtx=window.AudioContext||window.webkitAudioContext;
+ if(!AudioCtx){alert("Dein Browser unterstützt leider keine Audio-Wiedergabe.");return null;}
+ if(!audioContext)audioContext=new AudioCtx();
+ if(audioContext.state==="suspended")audioContext.resume();
+ return audioContext;
+}
+function playPattern(){
+ if(playing||answered)return;
+ const ctx=getAudio();if(!ctx)return;
+ playing=true;$("play").disabled=true;$("play").textContent="♪ Der Takt wird gespielt …";
+ const pattern=levels[current].correct;
+ const beat=60/100; // 100 BPM; ein Viertelschlag
+ let cursor=ctx.currentTime+.12;
+ // Zählzeit-Puls: ein kurzer Holzblock-Klang auf jedem Notenbeginn.
+ pattern.forEach(duration=>{
+  if(duration>0){
+   const osc=ctx.createOscillator(),gain=ctx.createGain();
+   osc.type="triangle";osc.frequency.setValueAtTime(880,cursor);
+   gain.gain.setValueAtTime(.0001,cursor);
+   gain.gain.exponentialRampToValueAtTime(.32,cursor+.008);
+   gain.gain.exponentialRampToValueAtTime(.0001,cursor+.11);
+   osc.connect(gain);gain.connect(ctx.destination);
+   osc.start(cursor);osc.stop(cursor+.13);
+  }
+  cursor+=Math.abs(duration)*beat;
+ });
+ const total=pattern.reduce((a,b)=>a+Math.abs(b),0)*beat;
+ window.setTimeout(()=>{
+  playing=false;$("play").disabled=false;$("play").textContent="↻ Noch einmal anhören";
+  $("answerA").disabled=false;$("answerB").disabled=false;
+ },Math.ceil((total+.25)*1000));
+}
+function choose(side){
+ if(answered||playing)return;
+ answered=true;
+ const good=side===correctSide;
+ if(good)score++;
+ $("score").textContent=score;
+ $("answerA").disabled=true;$("answerB").disabled=true;
+ const correctButton=$(correctSide==="A"?"answerA":"answerB");
+ correctButton.style.borderColor="#20a36b";
+ correctButton.style.background="#effaf4";
+ const fb=$("feedback");fb.className="feedback "+(good?"good":"bad");
+ fb.textContent=good?"Richtig! Genau diesen Rhythmus hast du gehört.":"Noch nicht ganz. Der grün markierte Rhythmus ist der gespielte Takt.";
+ $("next").textContent=current===9?"Ergebnis ansehen":"Nächstes Level →";
+ $("next").style.display="block";
+}
+function next(){
+ if(current<9){current++;render();return;}
+ $("game").style.display="none";$("finish").style.display="block";
+ $("finalScore").textContent=score+" / 10";
+ $("finalText").textContent=score===10?"Fantastisch! Du bist ein echter Takt-Profi!":score>=7?"Sehr gut! Dein Rhythmus-Gehör ist klasse!":"Gut gemacht! Übung macht den Takt-Profi.";
+}
+function restart(){current=0;score=0;$("finish").style.display="none";$("game").style.display="block";render();}
+$("play").addEventListener("click",playPattern);
+$("answerA").addEventListener("click",()=>choose("A"));
+$("answerB").addEventListener("click",()=>choose("B"));
+$("next").addEventListener("click",next);
+$("restart").addEventListener("click",restart);
+$("again").addEventListener("click",restart);
+render();
+})();
+</script>
+</body></html>
