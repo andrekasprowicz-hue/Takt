@@ -86,42 +86,49 @@ button{font:inherit;cursor:pointer;touch-action:manipulation;border:0;border-rad
 <script>
 (function(){
 "use strict";
-// Jeder Rhythmus umfasst vier Viertelschläge. Zahlen geben die Länge in Achtel-Einheiten an:
-// 1 = Achtelnote, 2 = Viertelnote, 4 = halbe Note; null = Pause über eine Viertelnote.
-const levels=[
- // Nur ganze, halbe und Viertelnoten sowie Pausen. Werte: 4=4 Schläge, 2=2, 1=1.
- // Negative Werte sind Pausen gleicher Länge.
- {correct:[1,1,1,1],wrong:[2,1,1]},
- {correct:[4],wrong:[2,2]},
- {correct:[2,1,1],wrong:[1,1,1,1]},
- {correct:[1,-1,1,1],wrong:[1,1,-1,1]},
- {correct:[2,-2],wrong:[2,1,1]},
- {correct:[-2,1,1],wrong:[1,-2,1]},
- {correct:[1,1,-1,1],wrong:[2,-1,1]},
- {correct:[4],wrong:[1,1,1,1]},
- {correct:[2,1,-1],wrong:[1,2,-1]},
- {correct:[1,-1,2],wrong:[2,1,-1]}
-];
-let current=0,score=0,correctSide="A",playing=false,answered=false,audioContext=null;
+// Jeder Takt umfasst genau vier Viertelschläge.
+// 1 = Viertelnote, 2 = halbe Note, 4 = ganze Note.
+// Negative Werte stehen für die entsprechende Pause.
+function makePattern(){
+ const parts=[];
+ let remaining=4;
+ while(remaining>0){
+  const choices=[1,2,4].filter(v=>v<=remaining);
+  const value=choices[Math.floor(Math.random()*choices.length)];
+  parts.push(Math.random()<0.22?-value:value);
+  remaining-=value;
+ }
+ if(parts.every(v=>v<0)) parts[Math.floor(Math.random()*parts.length)]*=-1;
+ return parts;
+}
+function patternKey(pattern){return pattern.join(',');}
+function makeLevels(){
+ const result=[];
+ const used=new Set();
+ for(let i=0;i<10;i++){
+  let correct,wrong;
+  do{correct=makePattern();}while(used.has(patternKey(correct)));
+  used.add(patternKey(correct));
+  do{wrong=makePattern();}while(patternKey(wrong)===patternKey(correct)||used.has(patternKey(wrong)));
+  used.add(patternKey(wrong));
+  result.push({correct,wrong});
+ }
+ return result;
+}
+let levels=makeLevels();
+let current=0,score=0,correctSide='A',playing=false,answered=false,audioContext=null;
 const $=id=>document.getElementById(id);
 function shufflePair(correct,wrong){
- return Math.random()<.5?{A:correct,B:wrong,side:"A"}:{A:wrong,B:correct,side:"B"};
+ return Math.random()<.5?{A:correct,B:wrong,side:'A'}:{A:wrong,B:correct,side:'B'};
 }
 function noteSVG(kind){
- // Die vier Notenbilder stammen direkt aus der vom Nutzer bereitgestellten Vorlage.
- const noteImages={
-  whole:"assets/ganze-note.png",
-  half:"assets/halbe-note.png",
-  quarter:"assets/viertelnote.png",
-  eighth:"assets/achtelnote.png"
- };
- if(noteImages[kind]) return `<img src="${noteImages[kind]}" alt="" aria-hidden="true">`;
- // Pausenzeichen werden ergänzend als grafische Symbole dargestellt.
- const common='viewBox="0 0 48 68" aria-hidden="true" focusable="false"';
- if(kind==="wholeRest") return `<svg ${common}><path d="M9 25 H37 V37 H9 Z" fill="#1d2b46"/></svg>`;
- if(kind==="halfRest") return `<svg ${common}><path d="M9 31 H37 V43 H9 Z" fill="#1d2b46"/></svg>`;
- if(kind==="quarterRest") return `<svg ${common}><path d="M22 5 L29 16 L18 28 L29 40 L19 52 L24 63" fill="none" stroke="#1d2b46" stroke-width="4.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
- return `<svg ${common}><path d="M17 8 C32 8 35 20 26 28 C37 31 37 44 23 48 L23 58" fill="none" stroke="#1d2b46" stroke-width="3.8" stroke-linecap="round"/><circle cx="23" cy="61" r="3.2" fill="#1d2b46"/></svg>`;
+ const common='viewBox="0 0 64 88" aria-hidden="true" focusable="false"';
+ if(kind==='whole') return `<svg ${common}><ellipse cx="27" cy="54" rx="14" ry="9" transform="rotate(-18 27 54)" fill="none" stroke="#1d2b46" stroke-width="5"/></svg>`;
+ if(kind==='half') return `<svg ${common}><path d="M39 51 V9" stroke="#1d2b46" stroke-width="4"/><ellipse cx="27" cy="55" rx="13" ry="8" transform="rotate(-18 27 55)" fill="white" stroke="#1d2b46" stroke-width="4.5"/></svg>`;
+ if(kind==='quarter') return `<svg ${common}><path d="M39 51 V9" stroke="#1d2b46" stroke-width="4"/><ellipse cx="27" cy="55" rx="13" ry="8" transform="rotate(-18 27 55)" fill="#1d2b46"/></svg>`;
+ if(kind==='wholeRest') return `<svg ${common}><path d="M15 37 H49 V48 H15 Z" fill="#1d2b46"/></svg>`;
+ if(kind==='halfRest') return `<svg ${common}><path d="M15 40 H49 V51 H15 Z" fill="#1d2b46"/></svg>`;
+ return `<svg ${common}><path d="M29 8 L39 22 L24 37 L39 51 L26 66 L31 80" fill="none" stroke="#1d2b46" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 function symbols(pattern){
  const wrap=document.createElement("div");wrap.className="rhythm";
@@ -208,7 +215,7 @@ function next(){
  $("finalScore").textContent=score+" / 10";
  $("finalText").textContent=score===10?"Fantastisch! Du bist ein echter Takt-Profi!":score>=7?"Sehr gut! Dein Rhythmus-Gehör ist klasse!":"Gut gemacht! Übung macht den Takt-Profi.";
 }
-function restart(){current=0;score=0;$("finish").style.display="none";$("game").style.display="block";render();}
+function restart(){levels=makeLevels();current=0;score=0;$("finish").style.display="none";$("game").style.display="block";render();}
 $("play").addEventListener("click",playPattern);
 $("answerA").addEventListener("click",()=>choose("A"));
 $("answerB").addEventListener("click",()=>choose("B"));
